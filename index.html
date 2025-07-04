@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Scraping</title>
+</head>
+<body>
+    <h1>Website Scraping</h1>
+
+    <!-- Input for URL -->
+    <label for="urlInput">Enter URL to scrape:</label>
+    <input type="text" id="urlInput" placeholder="Enter any website URL">
+    <button onclick="scrapeData()">Scrape Data</button>
+
+    <h2>Scraped Data Output</h2>
+    <pre id="output"></pre> <!-- To display the scraped data -->
+
+    <script>
+        // Function to scrape data from the page
+        function scrapeData() {
+            const url = document.getElementById("urlInput").value; // Get the URL from the input field
+            if (!url) {
+                alert("Please enter a valid URL.");
+                return;
+            }
+
+            // CORS Proxy to bypass CORS issues
+            const corsProxy = "https://api.allorigins.win/get?url=";
+            const proxyUrl = corsProxy + encodeURIComponent(url);
+
+            fetch(proxyUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const html = data.contents;
+
+                    // Create a temporary DOM to parse the HTML content
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+
+                    const scrapedData = {
+                        title: document.title || "No Title", // Title of the webpage
+                        meta: {
+                            description: doc.querySelector('meta[name="description"]')?.content || "No description",
+                            keywords: doc.querySelector('meta[name="keywords"]')?.content || "No keywords",
+                        },
+                        headings: [],
+                        links: [],
+                        paragraphs: [],
+                        images: [],
+                        lists: [],
+                        blockquotes: [],
+                        asides: [],
+                        scripts: [],
+                    };
+
+                    // Scraping all headings (h1 to h6)
+                    const hTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+                    hTags.forEach(tag => {
+                        doc.querySelectorAll(tag).forEach(element => {
+                            scrapedData.headings.push(element.innerText.trim());
+                        });
+                    });
+
+                    // Scraping all links (<a> tags) and handling relative URLs
+                    doc.querySelectorAll('a').forEach(anchor => {
+                        let href = anchor.href;
+
+                        // Handle relative links by converting them to absolute URLs
+                        if (href && !href.startsWith('http') && !href.startsWith('#')) {
+                            const baseUrl = new URL(url);
+                            href = new URL(href, baseUrl).href;
+                        }
+
+                        // Include external and internal links
+                        if (href && !scrapedData.links.includes(href)) {
+                            scrapedData.links.push(href);
+                        }
+                    });
+
+                    // Scraping all paragraphs (<p> tags)
+                    doc.querySelectorAll('p').forEach(paragraph => {
+                        scrapedData.paragraphs.push(paragraph.innerText.trim());
+                    });
+
+                    // Scraping all images (<img> tags)
+                    doc.querySelectorAll('img').forEach(image => {
+                        scrapedData.images.push(image.src);
+                    });
+
+                    // Scraping all lists (unordered and ordered)
+                    doc.querySelectorAll('ul, ol').forEach(list => {
+                        let listItems = [];
+                        list.querySelectorAll('li').forEach(item => {
+                            listItems.push(item.innerText.trim());
+                        });
+                        if (listItems.length) scrapedData.lists.push(listItems);
+                    });
+
+                    // Scraping all blockquotes
+                    doc.querySelectorAll('blockquote').forEach(blockquote => {
+                        scrapedData.blockquotes.push(blockquote.innerText.trim());
+                    });
+
+                    // Scraping all asides
+                    doc.querySelectorAll('aside').forEach(aside => {
+                        scrapedData.asides.push(aside.innerText.trim());
+                    });
+
+                    // Scraping all inline scripts
+                    doc.querySelectorAll('script').forEach(script => {
+                        if (script.src) {
+                            scrapedData.scripts.push(script.src); // External script URLs
+                        } else {
+                            scrapedData.scripts.push(script.innerText.trim()); // Inline scripts
+                        }
+                    });
+
+                    // Display the scraped data in the output area
+                    document.getElementById('output').textContent = JSON.stringify(scrapedData, null, 2);
+
+                    // Optionally, save to a file
+                    saveToFile(scrapedData);
+                })
+                .catch(err => {
+                    console.error('Error scraping data:', err);
+                    alert("There was an error scraping the data. Please check the URL and try again.");
+                });
+        }
+
+        // Function to save scraped data to a file (JSON format)
+        function saveToFile(data) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'scrapedData.json';
+            link.click();
+        }
+    </script>
+</body>
+</html>

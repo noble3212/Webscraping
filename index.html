@@ -3,29 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website Scraping</title>
+    <title>Modern Web Scraper</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, #0f0f0f, #2b2b2b);
+            color: #f1f1f1;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 800px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #cccccc;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+            color: #aaaaaa;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            background-color: #2a2a2a;
+            color: #f1f1f1;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #666;
+        }
+
+        h2 {
+            color: #dddddd;
+            margin-top: 30px;
+        }
+
+        pre {
+            background-color: #111;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            max-height: 400px;
+            color: #9cdcfe;
+        }
+    </style>
 </head>
 <body>
-    <h1>Website Scraping</h1>
+    <div class="container">
+        <h1>🔍 Website Scraper</h1>
 
-    <!-- Input for URL -->
-    <label for="urlInput">Enter URL to scrape:</label>
-    <input type="text" id="urlInput" placeholder="Enter any website URL">
-    <button onclick="scrapeData()">Scrape Data</button>
+        <label for="urlInput">Enter URL to scrape:</label>
+        <input type="text" id="urlInput" placeholder="https://example.com">
+        <button onclick="scrapeData()">Scrape Website</button>
 
-    <h2>Scraped Data Output</h2>
-    <pre id="output"></pre> <!-- To display the scraped data -->
+        <h2>📄 Scraped Data Output</h2>
+        <pre id="output"></pre>
+    </div>
 
     <script>
-        // Function to scrape data from the page
         function scrapeData() {
-            const url = document.getElementById("urlInput").value; // Get the URL from the input field
+            const url = document.getElementById("urlInput").value;
             if (!url) {
                 alert("Please enter a valid URL.");
                 return;
             }
 
-            // CORS Proxy to bypass CORS issues
             const corsProxy = "https://api.allorigins.win/get?url=";
             const proxyUrl = corsProxy + encodeURIComponent(url);
 
@@ -33,13 +107,11 @@
                 .then(response => response.json())
                 .then(data => {
                     const html = data.contents;
-
-                    // Create a temporary DOM to parse the HTML content
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
 
                     const scrapedData = {
-                        title: document.title || "No Title", // Title of the webpage
+                        title: doc.title || "No Title",
                         meta: {
                             description: doc.querySelector('meta[name="description"]')?.content || "No description",
                             keywords: doc.querySelector('meta[name="keywords"]')?.content || "No keywords",
@@ -54,81 +126,47 @@
                         scripts: [],
                     };
 
-                    // Scraping all headings (h1 to h6)
-                    const hTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-                    hTags.forEach(tag => {
+                    ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].forEach(tag => {
                         doc.querySelectorAll(tag).forEach(element => {
                             scrapedData.headings.push(element.innerText.trim());
                         });
                     });
 
-                    // Scraping all links (<a> tags) and handling relative URLs
                     doc.querySelectorAll('a').forEach(anchor => {
                         let href = anchor.href;
-
-                        // Handle relative links by converting them to absolute URLs
                         if (href && !href.startsWith('http') && !href.startsWith('#')) {
                             const baseUrl = new URL(url);
                             href = new URL(href, baseUrl).href;
                         }
-
-                        // Include external and internal links
                         if (href && !scrapedData.links.includes(href)) {
                             scrapedData.links.push(href);
                         }
                     });
 
-                    // Scraping all paragraphs (<p> tags)
-                    doc.querySelectorAll('p').forEach(paragraph => {
-                        scrapedData.paragraphs.push(paragraph.innerText.trim());
-                    });
+                    doc.querySelectorAll('p').forEach(p => scrapedData.paragraphs.push(p.innerText.trim()));
+                    doc.querySelectorAll('img').forEach(img => scrapedData.images.push(img.src));
 
-                    // Scraping all images (<img> tags)
-                    doc.querySelectorAll('img').forEach(image => {
-                        scrapedData.images.push(image.src);
-                    });
-
-                    // Scraping all lists (unordered and ordered)
                     doc.querySelectorAll('ul, ol').forEach(list => {
-                        let listItems = [];
-                        list.querySelectorAll('li').forEach(item => {
-                            listItems.push(item.innerText.trim());
-                        });
-                        if (listItems.length) scrapedData.lists.push(listItems);
+                        let items = [];
+                        list.querySelectorAll('li').forEach(li => items.push(li.innerText.trim()));
+                        if (items.length) scrapedData.lists.push(items);
                     });
 
-                    // Scraping all blockquotes
-                    doc.querySelectorAll('blockquote').forEach(blockquote => {
-                        scrapedData.blockquotes.push(blockquote.innerText.trim());
+                    doc.querySelectorAll('blockquote').forEach(b => scrapedData.blockquotes.push(b.innerText.trim()));
+                    doc.querySelectorAll('aside').forEach(a => scrapedData.asides.push(a.innerText.trim()));
+                    doc.querySelectorAll('script').forEach(s => {
+                        scrapedData.scripts.push(s.src || s.innerText.trim());
                     });
 
-                    // Scraping all asides
-                    doc.querySelectorAll('aside').forEach(aside => {
-                        scrapedData.asides.push(aside.innerText.trim());
-                    });
-
-                    // Scraping all inline scripts
-                    doc.querySelectorAll('script').forEach(script => {
-                        if (script.src) {
-                            scrapedData.scripts.push(script.src); // External script URLs
-                        } else {
-                            scrapedData.scripts.push(script.innerText.trim()); // Inline scripts
-                        }
-                    });
-
-                    // Display the scraped data in the output area
                     document.getElementById('output').textContent = JSON.stringify(scrapedData, null, 2);
-
-                    // Optionally, save to a file
                     saveToFile(scrapedData);
                 })
                 .catch(err => {
-                    console.error('Error scraping data:', err);
-                    alert("There was an error scraping the data. Please check the URL and try again.");
+                    console.error('Scrape error:', err);
+                    alert("Failed to scrape. Check URL and try again.");
                 });
         }
 
-        // Function to save scraped data to a file (JSON format)
         function saveToFile(data) {
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const link = document.createElement('a');
@@ -137,5 +175,7 @@
             link.click();
         }
     </script>
+</body>
+</html>
 </body>
 </html>
